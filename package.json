@@ -1,6 +1,6 @@
 {
   "name": "@woodylovesboota/test-kit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Jest and Playwright presets, result reporters, and one offline HTML report for both.",
   "keywords": [
     "jest",
