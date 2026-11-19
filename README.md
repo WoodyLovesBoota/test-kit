@@ -28,6 +28,29 @@ pnpm add -D jest @playwright/test
 
 ## Setup
 
+### One command
+
+```bash
+pnpm exec testkit init      # or: npx testkit init
+```
+
+`init` makes these changes and lists each one:
+
+| File | Change |
+|---|---|
+| `package.json` | adds the `test:report` (`testkit run`) and `test:report:open` (`testkit report --open`) scripts |
+| `.gitignore` | adds `/.testkit/` |
+| `playwright.config.*` | changes `defineConfig(…)` to `definePlaywrightConfig(…)`, or wraps your exported config in it. If there is no config file, it creates one |
+| `jest.config.*` | wraps the export in the preset: `X(config)` becomes `X(withTestkit(config))`, and `config` becomes `withTestkit(config)`. If there is no config file, it creates one |
+
+- It only edits config files with a common shape (ESM or CommonJS).
+- If a file has a shape `init` does not recognise, it leaves the file untouched and prints the lines to add by hand.
+- It skips any tool that is not in your `package.json`.
+- Running `init` a second time changes nothing.
+- Add `--dry-run` to see what it would change without writing anything.
+
+### By hand
+
 ```ts
 // jest.config.ts
 import { createJestConfig } from "@woodylovesboota/test-kit/jest";
@@ -96,9 +119,12 @@ test("checkout", async ({ page }) => {
 ## CLI
 
 ```
+testkit init [--dry-run]
 testkit run [--only jest|playwright] [--open]
 testkit report [--open]
 ```
+
+- `testkit init` sets the project up (see Setup).
 
 - `testkit run` runs Jest and then Playwright. If one fails, the other still runs. It then builds the report and exits with 1 if any command or test failed.
 - `testkit report` rebuilds the report from the saved results.
@@ -109,6 +135,7 @@ testkit report [--open]
 | `--open` | run, report | Open the report in the default browser |
 | `--results <dir>` | run, report | Results directory (default `.testkit/results`) |
 | `--report <dir>` | run, report | Report directory (default `.testkit/report`) |
+| `--dry-run` | init | Show the changes without writing them |
 | `--no-inline` | run, report | Link screenshots from `assets/` instead of embedding them |
 | `--jest-cmd <cmd>` | run | Command that runs Jest |
 | `--playwright-cmd <cmd>` | run | Command that runs Playwright |

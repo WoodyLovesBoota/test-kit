@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 // testkit run [--only jest|playwright] [--open]   run the tools one after another, then build the report
 // testkit report [--open]                         rebuild the report from saved results
+// testkit init [--dry-run]                         add scripts, .gitignore entry and presets to this project
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
 import { DEFAULT_REPORT_DIR, DEFAULT_RESULTS_DIR, RESULTS_DIR_ENV } from "./core/results";
+import { printInit, runInit } from "./init";
 import { generateReport } from "./report";
 
 type Tool = "jest" | "playwright";
@@ -25,8 +27,15 @@ export interface TestkitConfig {
 }
 
 const HELP = `Usage:
+  testkit init [--dry-run]
   testkit run [--only jest|playwright] [--open]
   testkit report [--open]
+
+Commands:
+  init                 Add the test:report scripts, ignore .testkit/, and switch jest.config /
+                       playwright.config to the testkit presets (or create them)
+  run                  Run Jest, then Playwright, then build the report
+  report               Rebuild the report from saved results
 
 Options:
   --only <tool>        Run one tool only (run)
@@ -34,6 +43,7 @@ Options:
   --results <dir>      Results directory (default ${DEFAULT_RESULTS_DIR})
   --report <dir>       Report directory (default ${DEFAULT_REPORT_DIR})
   --no-inline          Link screenshots from assets/ instead of embedding them in index.html
+  --dry-run            Show what init would change without writing (init)
   --jest-cmd <cmd>     Command that runs Jest
   --playwright-cmd <cmd>  Command that runs Playwright
   -h, --help           Show this help
@@ -50,11 +60,12 @@ interface Args {
   jestCmd?: string;
   playwrightCmd?: string;
   inline?: boolean;
+  dryRun: boolean;
   help: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { open: false, help: false };
+  const args: Args = { open: false, dryRun: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const [flag, inline] = a.startsWith("--") && a.includes("=") ? [a.slice(0, a.indexOf("=")), a.slice(a.indexOf("=") + 1)] : [a, undefined];
@@ -71,6 +82,9 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--no-inline":
         args.inline = false;
+        break;
+      case "--dry-run":
+        args.dryRun = true;
         break;
       case "--results":
         args.results = value();
@@ -176,6 +190,17 @@ function main(): void {
   const cwd = process.cwd();
   const config = readConfig(cwd);
   const resultsDir = path.resolve(cwd, args.results ?? config.resultsDir ?? process.env[RESULTS_DIR_ENV] ?? DEFAULT_RESULTS_DIR);
+
+  if (args.command === "init") {
+    const exec = packageManagerExec(cwd);
+    const run = exec === "pnpm exec" ? "pnpm test:report" : exec === "yarn" ? "yarn test:report" : exec === "bunx" ? "bun run test:report" : "npm run test:report";
+    try {
+      printInit(runInit({ cwd, dryRun: args.dryRun }), args.dryRun, run);
+    } catch (e) {
+      fail((e as Error).message);
+    }
+    return;
+  }
 
   if (args.command === "report") {
     report(cwd, config, args, []);
