@@ -1,0 +1,53 @@
+# Publishes @woodylovesboota/test-kit to npm with Changesets.
+#
+# On every push to main:
+#   - if there are pending changesets (.changeset/*.md), it opens/updates a "Version Packages" PR
+#     that bumps the version and writes CHANGELOG.md;
+#   - when that PR is merged (no pending changesets left), it builds and publishes to npm.
+#
+# Needs the repository secret NPM_TOKEN (an npm "Automation" or granular publish token), and
+# Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: release-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm-lock.yaml is lockfile v6 (pnpm 8).
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - uses: changesets/action@v1
+        with:
+          version: pnpm version-packages
+          publish: pnpm release
+          title: "Version Packages"
+          commit: "Version Packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
